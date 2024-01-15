@@ -1,0 +1,332 @@
+#!/usr/bin/bash
+
+if [[ -h "$0" ]]; then
+    cd "$(dirname "$(realpath "$0")")" || exit 2
+else
+    cd "$(dirname "$0")" || exit 2
+fi
+
+source "$PWD/common.sh"
+source "$PWD/config.sh"
+
+function shell_usage() {
+cat<<__EOF__
+Usage: ${0##*/} <instance|session>
+        <instance> is a Minecraft Server service instance name.
+        <session> is a screen session name.
+__EOF__
+printf "\033[33m
+NOTE:
+    If you start Minecraft server with MCST, the <instance> and <session> 
+    should be the same.
+
+    Use <instance> will go into instance mode, and <session> will be 
+    session mode.
+
+    If you start Minecraft Server in instance mode when session exist, 
+    you will go into the session mode.
+
+    Use 'mcscli list-sessions' to see all available sessions.
+    Use 'mcscli list-instances' to see all available instances.
+
+\033[0m"
+    success_echo "\
+    You can also use 'mcscli' tool to manager your server.
+"
+}
+
+function shell_welcome() {
+    clear
+    cat<<__EOF__
+
+==============================================================
+  __  __  ____ ____ ____  _   _ _____ _     _     
+ |  \/  |/ ___/ ___/ ___|| | | | ____| |   | |    
+ | |\/| | |   \___ \___ \| |_| |  _| | |   | |    
+ | |  | | |___ ___) |__) |  _  | |___| |___| |___ 
+ |_|  |_|\____|____/____/|_| |_|_____|_____|_____|
+                                                  
+==============================================================
+Welcome to Minecraft Server Shell. Using 'help' show commands.
+==============================================================
+__EOF__
+    if [[ -z "$__SHELL_SESSION_NAME" ]]; then
+        warn_echo "Run in instance mode. Some commands may not be available."
+    else
+        success_echo "Run for session: $__SHELL_SESSION_NAME"
+    fi
+}
+
+function shell_help() {
+    cat<<__EOF__
+Command:
+    help                    Show this help.
+    new <instance>          Create and initialize a <instance>.
+    list-sessions           List all available sessions.
+    list-instances          List all available instances.
+    list-all                List all sessions and instances.
+    use <instance|session>  Change instance or session to new one.
+    update                  Update current instance scripts.
+    stop, quit, exit, q     Exit MCSShell.
+    mode                    Show MCSShell mode.
+    clear                   Clear screen.
+    logs                    Show Minecraft Server logs then return to shell.
+    watch-logs              Show Minecraft Server logs, and wait for new.
+    status                  Show Minecraft Server status.
+    start-server            Start Minecraft Server.
+    stop-server             Stop Minecraft Server.
+    cmd <command>           Enforce <command> as a Minectaft Server command.
+
+    All unknow commands will be send to Mivecraft Server.
+    Such as 'say Hello MCSShell', 'list', 'op', etc.
+
+__EOF__
+}
+
+function shell_mode() {
+    if [[ -z "$__SHELL_SESSION_NAME" ]]; then
+        if [[ -z "$__SHELL_INSTANCE_NAME" ]]; then
+            error_echo "Unknow mode."
+        else
+            warn_echo "Instance mode, for instance $__SHELL_INSTANCE_NAME."
+        fi
+    else
+        success_echo "Session mode, in session $__SHELL_SESSION_NAME."
+    fi
+}
+
+function shell_send_cmd() {
+    if [[ -z "$*" ]]; then
+        warn_echo "No command, ignore."
+        return 1
+    fi
+
+    if [[ -z "$__SHELL_SESSION_NAME" ]]; then
+        error_echo "Can not send command."
+        warn_echo "No session selected. Are you in instance mode?"
+        return 1
+    fi
+
+    _shell_log_file="$CONF_SERVER_DIR/$__SHELL_INSTANCE_NAME/logs/latest.log"
+    _shell_log_lines="$(wc "$_shell_log_file" | awk '{ print $1 }')"
+    cmd "$__SHELL_SESSION_NAME" "$@"
+    sleep 1
+    _shell_log_new_lines="$(wc "$_shell_log_file" | awk '{ print $1 }')"
+    
+    tail -n $((_shell_log_new_lines - _shell_log_lines)) "$_shell_log_file"
+    return 0
+}
+
+function shell_watch_logs() {
+    _shell_log_file="$CONF_SERVER_DIR/$__SHELL_INSTANCE_NAME/logs/latest.log"
+    warn_echo "Press 'q' to exit."
+    tail -f "$_shell_log_file" &
+    _shell_tail_pid=$!
+
+    while true; do
+        read -r -n 1 _shell_key
+        if [[ "$_shell_key" == "q" ]]; then
+            echo ""
+            kill "$_shell_tail_pid" &> /dev/null
+            break
+        fi
+    done
+    success_echo "Stop watching logs."
+    return 0
+}
+
+function shell_update_session() {
+    if [[ -n "$__SHELL_SESSION_NAME" ]]; then
+        if ! has_session "$__SHELL_SESSION_NAME"; then
+            error_echo "Detached session closed, back to instance mode."
+            __SHELL_SESSION_NAME=""
+            return 1
+        fi
+    else
+        if has_session "$__SHELL_INSTANCE_NAME"; then
+            __SHELL_SESSION_NAME="$__SHELL_INSTANCE_NAME"
+            return 0
+        else
+            return 1
+        fi
+    fi
+    return 1
+}
+
+function shell_change_instance() {
+    if [[ -z "$1" ]]; then
+        error_echo "Need a instance name."
+        return 1
+    fi
+
+    if has_instance "$1"; then
+        success_echo \
+            "Change instance from '$__SHELL_INSTANCE_NAME' to '$1'"
+        __SHELL_INSTANCE_NAME="$1"
+    else
+        error_echo "No instance: $1, no changes."
+        return 1
+    fi
+
+    if has_session "$1"; then
+        if [[ -z "$__SHELL_SESSION_NAME" ]]; then
+            success_echo "Set session to: $1."
+        else
+            success_echo \
+              "Change session from '$__SHELL_SESSION_NAME' to '$1'"
+        fi
+        __SHELL_SESSION_NAME="$1"
+    else
+        warn_echo "No session: $1, back to instance mode."
+        __SHELL_SESSION_NAME=""
+    fi
+    return 0
+}
+
+function shell_list_sessions() {
+    _cli_sessions="$(list_sessions)"
+    if [[ -z "$_shell_sessions" ]]; then
+        error_echo "No sessions."
+        return 1
+    fi
+
+    for _shell_session in $_shell_sessions; do
+        if [[ "$_shell_session" == "$__SHELL_SESSION_NAME" ]]; then
+            success_echo "$_shell_session (current)"
+        else
+            echo "$_shell_session"
+        fi
+    done
+    return 0
+}
+
+function shell_list_instances() {
+    _shell_instances="$(list_instances)"
+    if [[ -z "$_shell_instances" ]]; then
+        error_echo "No instances."
+        return 1
+    fi
+
+    for _shell_instance in $_shell_instances; do
+        if [[ "$_shell_instance" == "$__SHELL_INSTANCE_NAME" ]]; then
+            success_echo "$_shell_instance (current) "
+        else
+            echo "$_shell_instance"
+        fi
+    done
+    return 0
+}
+
+if [[ "$(whoami)" != "$CONF_USER" ]]; then
+    error_echo "Please run as user '$CONF_USER'"
+    exit 2
+fi
+
+# Set instance name, if it is a session name, we will know it later.
+__SHELL_INSTANCE_NAME="$1"
+if [[ -z "$__SHELL_INSTANCE_NAME" ]]; then
+    error_echo "Need session or instance name."
+    shell_usage
+    exit 2
+# Start in instance mode, check if we have this instance.
+elif has_instance "$__SHELL_INSTANCE_NAME"; then
+    success_echo "Found instance: $__SHELL_INSTANCE_NAME."
+else
+    error_echo "No this instance: $__SHELL_INSTANCE_NAME."
+    exit 1
+fi
+
+# Check if session exist.
+if has_session "$__SHELL_INSTANCE_NAME"; then
+    __SHELL_SESSION_NAME="$__SHELL_INSTANCE_NAME"
+    success_echo "Found session: $__SHELL_SESSION_NAME."
+    success_echo "Start in session mode."
+else
+    __SHELL_SESSION_NAME=""
+    warn_echo "No this session: $__SHELL_SESSION_NAME."
+    warn_echo "Start in instance mode."
+fi
+
+
+shell_welcome
+
+while true; do
+    read -p "mcsshell> " -r -e -a _shell_line
+    case ${_shell_line[0]} in
+        help)
+            shell_help
+            ;;
+        list-sessions)
+            shell_list_sessions
+            ;;
+        list-instances)
+            shell_list_instances
+            ;;
+        list-all)
+            warn_echo "Sessions:"
+            shell_list_sessions
+            warn_echo "Instances:"
+            shell_list_instances
+            ;;
+        use)
+            shell_change_instance "${_shell_line[1]}"
+            ;;
+        new)
+            if [[ -z "${_shell_line[1]}" ]]; then
+                error_echo "Need a instance name."
+            else
+                if has_instance "${_shell_line[1]}"; then
+                    error_echo "Instance ${_shell_line[1]} already exist."
+                else
+                    echo "Create new instance at $CONF_SERVER_DIR/${_shell_line[1]}"
+                    mkdir -p "$CONF_SERVER_DIR/${_shell_line[1]}"
+                    generate_scripts "${_shell_line[1]}"
+                fi
+            fi
+            ;;
+        update)
+            generate_scripts "$__SHELL_INSTANCE_NAME"
+            ;;
+        stop | quit | q | exit)
+            warn_echo "If you want to stop Minecraft Server, use 'stop-server'"
+            success_echo "Good Bye."
+            exit 0
+            ;;
+        mode)
+            shell_mode
+            ;;
+        clear)
+            shell_welcome
+            ;;
+        logs)
+            logs "$__SHELL_INSTANCE_NAME"
+            ;;
+        watch-logs)
+            shell_watch_logs
+            ;;
+        status)
+            status "$__SHELL_INSTANCE_NAME"
+            ;;
+        start-server)
+            start "$__SHELL_INSTANCE_NAME"
+            ;;
+        stop-server)
+            if [[ -z "$__SHELL_SESSION_NAME" ]]; then
+                warn_echo "No in session mode, ignore."
+            else
+                stop "$__SHELL_SESSION_NAME"
+            fi
+            ;;
+        help-server)
+            shell_send_cmd "help"
+            ;;
+        cmd)
+            unset "line[0]"
+            shell_send_cmd "${_shell_line[*]}"
+            ;;
+        *)
+            shell_send_cmd "${_shell_line[*]}"
+            ;;
+    esac
+    shell_update_session
+done
