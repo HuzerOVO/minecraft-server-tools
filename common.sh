@@ -42,9 +42,9 @@ function is_running() {
         return 1
     fi
 
-    _cli_session_file="$CONF_SERVER_DIR/$1/screen.session"
-    if [[ -f "$_cli_session_file" ]]; then
-        if [[ "$(cat "$_cli_session_file")" == "running" ]]; then
+    _common_session_file="$CONF_SERVER_DIR/$1/screen.session"
+    if [[ -f "$_common_session_file" ]]; then
+        if [[ "$(cat "$_common_session_file")" == "running" ]]; then
             return 0
         fi
     fi
@@ -73,24 +73,24 @@ function start() {
         return 1
     fi
 
-    _cli_instance="$1"
-    _cli_start_sh="$CONF_SERVER_DIR/$_cli_instance/start.sh"
-    if [[ ! -f "$_cli_start_sh" ]]; then
-        error_echo "common.start: Can not find start.sh($_cli_start_sh)."
+    _common_instance="$1"
+    _common_start_sh="$CONF_SERVER_DIR/$_common_instance/start.sh"
+    if [[ ! -f "$_common_start_sh" ]]; then
+        error_echo "common.start: Can not find start.sh($_common_start_sh)."
         return 1
     fi
 
-    if is_running "$_cli_instance"; then 
-        warn_echo "Instance $_cli_instance is running, ignore."
+    if is_running "$_common_instance"; then 
+        warn_echo "Instance $_common_instance is running, ignore."
         return 1
     else
-        _cli_tmp_dir="$PWD"
-        cd "$CONF_SERVER_DIR/$_cli_instance/" || return 1
+        _common_tmp_dir="$PWD"
+        cd "$CONF_SERVER_DIR/$_common_instance/" || return 1
         echo "starting" > "screen.session"
-        screen -dmS "$CONF_SESSION_PREFIX$_cli_instance" bash "$CONF_SERVER_DIR/$_cli_instance/start.sh" \
+        screen -dmS "$CONF_SESSION_PREFIX$_common_instance" bash "$CONF_SERVER_DIR/$_common_instance/start.sh" \
             || return 1
-        cd "$_cli_tmp_dir" || return 1
-        success_echo "Server _cli_instance '$_cli_instance' is starting."
+        cd "$_common_tmp_dir" || return 1
+        success_echo "Server instance '$_common_instance' is starting."
     fi
 
     return 0
@@ -112,19 +112,19 @@ function stop() {
         return 1
     fi
 
-    _cli_instance="$1"
-    if is_running "$_cli_instance"; then
-        _cli_tmp_dir="$PWD"
-        cd "$CONF_SERVER_DIR/$_cli_instance/" || return 1
+    _common_instance="$1"
+    if is_running "$_common_instance"; then
+        _common_tmp_dir="$PWD"
+        cd "$CONF_SERVER_DIR/$_common_instance/" || return 1
         echo "closing" > "screen.session"
-        screen -dmS "$CONF_SESSION_PREFIX${_cli_instance}-closer" \
-            bash "$CONF_SERVER_DIR/$_cli_instance/stop.sh" "$_cli_instance" \
+        screen -dmS "$CONF_SESSION_PREFIX${_common_instance}-closer" \
+            bash "$CONF_SERVER_DIR/$_common_instance/stop.sh" "$_common_instance" \
             || return 1
-        cd "$_cli_tmp_dir" || return 1
+        cd "$_common_tmp_dir" || return 1
         success_echo \
-            "Server session '$_cli_instance' is closing, it may take a long time."
+            "Server session '$_common_instance' is closing, it may take a long time."
     else
-        warn_echo "Instance $_cli_instance is not running, ignore."
+        warn_echo "Instance $_common_instance is not running, ignore."
         return 1
     fi
 
@@ -143,14 +143,14 @@ function status() {
         return 1
     fi
 
-    _cli_session_file="$CONF_SERVER_DIR/$1/screen.session"
-    if [[ ! -f "$_cli_session_file" ]]; then
+    _common_session_file="$CONF_SERVER_DIR/$1/screen.session"
+    if [[ ! -f "$_common_session_file" ]]; then
         error_echo "common.status: No session file for '$1'."
         return 1
     fi
 
-    _cli_status_string="$(cat "$_cli_session_file")"
-    case "$_cli_status_string" in
+    _common_status_string="$(cat "$_common_session_file")"
+    case "$_common_status_string" in
         starting)
             warn_echo "Minecraft server instance '$1' is staring."
             ;;
@@ -160,11 +160,11 @@ function status() {
         closing)
             warn_echo "Minecraft Server instance '$1' is closing."
             ;;
-        stoped)
-            warn_echo "Minecraft Server instance '$1' is stoped."
+        stopped)
+            warn_echo "Minecraft Server instance '$1' is stopped."
             ;;
         *)
-            error_echo "Unknow status: $_cli_status_string."
+            error_echo "Unknow status: $_common_status_string."
             return 1
     esac
 
@@ -228,14 +228,14 @@ function list_sessions() {
     if ! has_screen; then 
         return 1
     fi
-    _cli_grep_reg="$CONF_SESSION_PREFIX"
-    if [[ -z "$_cli_grep_reg" ]]; then
-        _cli_grep_reg="Detached|Attached"
+    _common_grep_reg="$CONF_SESSION_PREFIX"
+    if [[ -z "$_common_grep_reg" ]]; then
+        _common_grep_reg="Detached|Attached"
     fi
-    screen -list | while read -r _cli_line; do
-        _cli_session="$(echo "$_cli_line" | \
+    screen -list | while read -r _common_line; do
+        _common_session="$(echo "$_common_line" | \
             # find session
-            grep -E "$_cli_grep_reg" | \
+            grep -E "$_common_grep_reg" | \
             # ignore sessiong that stops a instance
             grep -v -E ".*?-closer" | \
             # get instance name
@@ -245,8 +245,8 @@ function list_sessions() {
             sed -E -r "s/^$CONF_SESSION_PREFIX//" | \
             # display session name
             awk '{ printf $1 }')"
-        if [[ -n "$_cli_session" ]]; then
-            echo "$_cli_session"
+        if [[ -n "$_common_session" ]]; then
+            echo "$_common_session"
         fi  
     done
     return 0
@@ -259,9 +259,9 @@ function list_sessions() {
 # note: no message if there is a error.
 function list_instances() {
     if [[ -d "$CONF_SERVER_DIR" ]]; then
-        for _cli_instance in "$CONF_SERVER_DIR"/*; do
-            if [[ -d "$_cli_instance" ]]; then
-                echo "${_cli_instance##*/}"
+        for _common_instance in "$CONF_SERVER_DIR"/*; do
+            if [[ -d "$_common_instance" ]]; then
+                echo "${_common_instance##*/}"
             fi
         done
     else
@@ -283,8 +283,8 @@ function has_session() {
         error_echo "common.has_session: Need a session name."
         return 2
     fi
-    for _cli_session in $(list_sessions); do
-        if [[ "$_cli_session" == "$1" ]]; then
+    for _common_session in $(list_sessions); do
+        if [[ "$_common_session" == "$1" ]]; then
             return 0
         fi
     done
@@ -303,8 +303,8 @@ function has_instance() {
         error_echo "common.has_instance: Need a instance name."
         return 2
     fi
-    for _cli_instance in $(list_instances); do
-        if [[ "$_cli_instance" == "$1" ]]; then
+    for _common_instance in $(list_instances); do
+        if [[ "$_common_instance" == "$1" ]]; then
             return 0
         fi
     done
@@ -339,7 +339,7 @@ $CONF_JAVA_BIN ${CONF_JAVA_OPTIONS[@]} \\
     -jar "$CONF_JAR_FILE" ${CONF_MINECRAFT_OPTIONS[@]} \\
     || die
 
-update_status "stoped"
+update_status "stopped"
 
 exit 0
 
@@ -361,8 +361,8 @@ echo "closing" > "screen.session"
 
 # stop command
 __EOF__
-for _cli_command in "${CONF_STOP_CMD[@]}"; do
-    echo "$_cli_command"
+for _common_command in "${CONF_STOP_CMD[@]}"; do
+    echo "$_common_command"
 done
 }
 
@@ -378,8 +378,8 @@ function generate_scripts() {
         return 2
     fi
 
-    _cli_instance="$1"
-    _cli_instance_path="$CONF_SERVER_DIR/$_cli_instance"
-    generate_start_script "$_cli_instance" > "$_cli_instance_path/start.sh"
-    generate_stop_script "$_cli_instance" > "$_cli_instance_path/stop.sh"
+    _common_instance="$1"
+    _common_instance_path="$CONF_SERVER_DIR/$_common_instance"
+    generate_start_script "$_common_instance" > "$_common_instance_path/start.sh"
+    generate_stop_script "$_common_instance" > "$_common_instance_path/stop.sh"
 }
