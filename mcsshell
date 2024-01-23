@@ -1,5 +1,7 @@
 #!/usr/bin/bash
 
+echo "Project refact" && exit 3
+
 if [[ -h "$0" ]]; then
     cd "$(dirname "$(realpath "$0")")" || exit 2
 else
@@ -61,7 +63,7 @@ function shell_help() {
     cat<<__EOF__
 Command:
     help                    Show this help.
-    new <instance>          Create and initialize a <instance>.
+    init <instance>          Create and initialize a <instance>.
     list-sessions           List all available sessions.
     list-instances          List all available instances.
     list-all                List all sessions and instances.
@@ -271,14 +273,14 @@ while true; do
         use)
             shell_change_instance "${_shell_line[1]}"
             ;;
-        new)
+        init)
             if [[ -z "${_shell_line[1]}" ]]; then
                 error_echo "Need a instance name."
             else
                 if has_instance "${_shell_line[1]}"; then
                     error_echo "Instance ${_shell_line[1]} already exist."
                 else
-                    echo "Create new instance at $CONF_SERVER_DIR/${_shell_line[1]}"
+                    echo "Instance initialized at $CONF_SERVER_DIR/${_shell_line[1]}"
                     mkdir -p "$CONF_SERVER_DIR/${_shell_line[1]}"
                     generate_scripts "${_shell_line[1]}"
                 fi

@@ -6,34 +6,34 @@ else
     cd "$(dirname "$0")" || exit 2
 fi
 
-source "config.sh"
 source "common.sh"
 
 function cli_usage() {
     cat<<__EOF__
 Usage: ${0##*/} [COMMAND]
 
-    Command:
-    new <instance>          Create and initialize a <instance>.
-    update <instance>       Update scripts in a initialized <instance>.
-    start <instance>        Start the server for <instance>.
-    stop <session>          Stop the server that run in <session>.
-    status [instance]       Show a server status, or all instances.
-    logs <instance>         Show the server's logs for <instance>.
-    list-instances          List all available server instances.
-    list-sessions           List all available screen sessions.
-    cmd <session> <cmd>     Send a Minescarft command <cmd> to <session>.
-    help                    Show this help.
+Command:
+    init <instance> <game>      Initialize a <instance> for game <game>.
+    generate-scripts <instance> Generate scripts for <instance>
+    start <instance>            Start the server for <instance>.
+    stop <session>              Stop the server that run in <session>.
+    status [instance]           Show a server status, or all instances.
+    list-instances              List all available server instances.
+    list-sessions               List all available screen sessions.
+    list-supported-games        List all supported games.
+    cmd <session> <cmd>         Send a command string <cmd> to <session>.
+    help                        Show this help.
 __EOF__
 printf "\033[33m
 NOTE:
-<instance> is a instance name, it can be found here %s.
+<instance> is a instance name.
 <session> is a screen session name.
-<cmd> is a Minecraft server commnad.
+<game> is a game name.
+<cmd> is a server commnad.
 
-If you start Minecraft server with systemd service,
-screen session name and instance name should be the same.
-\033[0m" "$CONF_SERVER_DIR"
+The <instance> name and the <session> name should be the same if you start
+server instance with MCST.
+\033[0m"
 }
 
 # Default, screen run as user 'minecraft',
@@ -50,43 +50,47 @@ if [[ $# -lt 1 ]]; then
 fi
 
 case $1 in
-    new)
+    init)
         shift
         if [[ -z "$1" ]]; then
             error_echo "Need a instance name."
             exit 2
         fi
 
-        if has_instance "$1"; then
-            error_echo "Instance $1 already exist."
+        if has_instance "$1" && [[ -d "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE" ]]; then
+            error_echo "Instance $1 is already initialized."
             exit 1
         fi
 
-        mkdir -p "$CONF_SERVER_DIR/$1"
-        generate_scripts "$1"
-        ;;
-    update)
-        shift
-        if [[ -z "$1" ]]; then
-            # Update all instances
-            instances=$(list_instances)
-            if [[ -z "$instances" ]]; then
-                error_echo "No instance to update."
-                exit 1
+        if [[ -z "$2" ]]; then
+            error_echo "Need a game name."
+            exit 2 
+        fi
+
+        if ! is_supported_game "$2"; then
+            if [[ "$3" == "--force" ]]; then
+                warn_echo "Force initialize an unsupported game server instance."
             else
-                for instance in $instances; do
-                    generate_scripts "$instance"
-                done
-            fi
-        else
-            # Update the specified instance.
-            if has_instance "$1"; then
-                generate_scripts "$1"
-            else
-                error_echo "No this instance: $1."
-                exit 1
+                warn_echo "No a supported game: $2"
+                warn_echo "If you realy want to initialize it, use 'mcscli init $1 $2 --force'"
+                exit 0
             fi
         fi
+        init "$1" "$2"
+        ;;
+    generate-scripts)
+        shift
+        if [[ -z "$1" ]]; then
+            error_echo "Need a instance name."
+            exit 2
+        fi
+
+        if ! has_instance "$1"; then
+            error_echo "No this instance: $1."
+            exit 1
+        fi
+
+        generate_scripts "$1"
         ;;
     start)
         shift
@@ -94,6 +98,7 @@ case $1 in
             error_echo "Need a instance to start."
             exit 2
         fi
+
         if has_instance "$1"; then
             start "$1" || exit 1
         else
@@ -127,6 +132,7 @@ case $1 in
                     status "$instance"
                 done
             fi
+            unset instances
         else
             # Show the specified instance.
             if has_instance "$1"; then
@@ -137,19 +143,6 @@ case $1 in
             fi
         fi
         ;;
-    logs)
-        shift
-        if [[ -z "$1" ]]; then
-            error_echo "Need a instace name to show log."
-            exit 2
-        fi
-        if has_instance "$1"; then
-            logs "$1" || exit 1
-        else
-            error_echo "No this instance: $1."
-            exit 1
-        fi
-        ;;
     list-instances)
         instances=$(list_instances)
         if [[ -z "$instances" ]]; then
@@ -157,12 +150,13 @@ case $1 in
             exit 1
         fi
         for instance in $instances; do
-            if [[ -f "$CONF_SERVER_DIR/$instance/screen.session" ]]; then
+            if [[ -d "$CONF_SERVER_DIR/$instance/$CONF_MCST_BASE" ]]; then
                 printf "%s \033[32m(initialized)\033[0m\n" "$instance"
             else
                 printf "%s \033[31m(not initialized)\033[0m\n" "$instance"
             fi
         done
+        unset instances
         ;;
     list-sessions)
         sessions=$(list_sessions)
@@ -170,8 +164,15 @@ case $1 in
             error_echo "No session to list."
             exit 1
         else
-            echo "$sessions"
+            success_echo "$sessions"
         fi
+        unset sessions
+        ;;
+    list-supported-games)
+        for games in $(list_supported_games); do
+            success_echo "$games"
+        done
+        unset games
         ;;
     cmd)
         shift
