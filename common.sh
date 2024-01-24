@@ -132,6 +132,42 @@ function status() {
     return 0
 }
 
+function update() {
+    if [[ -z "$1"  ]]; then
+        error_echo "common.upgrade: Need a instance name."
+        return 1
+    fi
+
+    run_script "$1" "update"
+    return 0
+}
+
+function reload() {
+    if [[ -z "$1"  ]]; then
+        error_echo "common.reload: Need a instance name."
+        return 1
+    fi
+
+    if ! is_running "$1"; then
+        warn_echo "Try to reload a instance that is not running."
+    fi
+    run_script "$1" "reload"
+    return 0
+}
+
+function custom_script() {
+    if [[ -z "$1" ]]; then 
+        error_echo "common.script: Need a instance name."
+        return 1
+    fi
+
+    if [[ -z "$2" ]]; then
+        error_echo "common.script: Need a script(operation) name."
+    fi
+
+    run_script "$1" "$2"
+    return 0
+}
 # desc: Execute Server command in a instace(session).
 # param:
 #   1: instance name
@@ -288,6 +324,9 @@ function generate_scripts() {
     fi
 
     _common_game="$(cat "$CONF_SERVER_DIR/$1/$CONF_MCST_INSTANCE_GAME")"
+    if [[ -z "$_common_game" ]]; then
+        error_echo "Can not get game type for $1."
+    fi
     generate_start_script "$1" "$_common_game" > "$CONF_SERVER_DIR/$1/$CONF_MCST_START_SCRIPT"
     generate_stop_script "$1" "$_common_game" > "$CONF_SERVER_DIR/$1/$CONF_MCST_STOP_SCRIPT"
     generate_others "$1" "$_common_game"

@@ -76,9 +76,7 @@ __EOF__
     if [[ -f "$CONF_SERVER_DIR/$1/$CONF_MCST_START_SCRIPT.override" ]]; then
         cat "$CONF_SERVER_DIR/$1/$CONF_MCST_START_SCRIPT.override"
     else
-        if is_supported_game "$2"; then
-            cat "$CONF_SCRIPTS_DIR/$2/start.sh"
-        fi
+        cat "$CONF_SCRIPTS_DIR/$2/start.sh"
     fi
     cat <<__EOF__
 
@@ -108,9 +106,7 @@ __EOF__
     if [[ -f "$CONF_SERVER_DIR/$1/$CONF_MCST_STOP_SCRIPT.override" ]]; then
         cat "$CONF_SERVER_DIR/$1/$CONF_MCST_STOP_SCRIPT.override"
     else
-        if is_supported_game "$2"; then
-            cat "$CONF_SCRIPTS_DIR/$2/stop.sh"
-        fi
+        cat "$CONF_SCRIPTS_DIR/$2/stop.sh"
     fi
 }
 
@@ -142,8 +138,14 @@ __EOF__
     
     # gemerate user override
     for _builtin_script in "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE"/*.override; do
+        if [[ ! -f "$_builtin_script" ]]; then
+            continue
+        fi
         _builtin_script="${_builtin_script##*/}" # xxx.sh.override
         _builtin_script="${_builtin_script%.override}"
+        if [[ "$_builtin_script" == "start.sh" || "$_builtin_script" == "stop.sh" ]]; then
+            continue
+        fi
         cat > "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$_builtin_script" <<__EOF__
 #!/usr/bin/bash
 
@@ -153,4 +155,27 @@ function mcst_cmd () {
 __EOF__
         cat "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/${_builtin_script}.override" >> "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$_builtin_script"
     done
+}
+
+function run_script() {
+    if [[ -z "$1"  ]]; then
+        error_echo "builtin.run_script: Need a instance name."
+        return 1
+    fi
+
+    if [[ -z "$2" ]]; then
+        error_echo "builtin.run_script: Need a script(operation) name."
+    fi
+
+    if [[ ! -f "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.sh" ]]; then
+        error_echo "It seems that your instance doesn't support $2 operation."
+        return 1
+    fi
+
+    _common_tmp_dir="$PWD"
+    cd "$CONF_SERVER_DIR/$1" || return 1
+    bash "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.sh" || error_echo "Script return failed."
+    cd "$_common_tmp_dir" || return 1
+    unset _common_tmp_dir
+    return 0
 }
