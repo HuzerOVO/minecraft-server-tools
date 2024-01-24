@@ -66,6 +66,8 @@ function generate_start_script() {
     cat <<__EOF__
 #!/usr/bin/bash
 
+export instance_path="$CONF_SERVER_DIR/${1}"
+
 function update_status() {
     echo "\$*" > "$CONF_SERVER_DIR/${1}/$CONF_MCST_INSTANCE_STATUS"
 }
@@ -93,6 +95,8 @@ return 0
 function generate_stop_script() {
     cat<<__EOF__
 #!/usr/bin/bash
+
+export instance_path="$CONF_SERVER_DIR/${1}"
 
 function mcst_cmd () {
     screen -p 0 -S "$CONF_SESSION_PREFIX$1" -X eval "stuff \"\$(printf '%s\r\n' "\$*")\""
@@ -127,6 +131,8 @@ function generate_others() {
         fi
         cat > "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$_builtin_script" <<__EOF__
 #!/usr/bin/bash
+
+export instance_path="$CONF_SERVER_DIR/${1}"
 
 function mcst_cmd () {
     screen -p 0 -S "$CONF_SESSION_PREFIX$1" -X eval "stuff \"\$(printf '%s\r\n' "\$*")\""

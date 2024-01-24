@@ -58,3 +58,5 @@ export CONF_SESSION_PREFIX="mcst-"
 
 所有`*.sh.override`文件都应该使用Bash语法，如果你想执行一个服务器指令，你可以
 使用这样的语句`mcst_cms "你想执行的指令"`。
+
+你可以在你的脚本中使用`instance_path`来获取服务实例的绝对路径。

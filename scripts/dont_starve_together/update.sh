@@ -1,4 +1,4 @@
-server_path="$HOME/game_servers/dst_server"
+server_path="$instance_path"
 backup_path=$(mktemp -d)
 cp "$server_path/mods/dedicated_server_mods_setup.lua" "$backup_path/dedicated_server_mods_setup.lua"
 

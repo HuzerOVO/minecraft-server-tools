@@ -65,3 +65,5 @@ server instance.
 
 The `*.sh.override` file should be write with bash syntax, if you want to 
 execute a server command, you can use `mcst_cmd "call a server command"`.
+
+You can use `instance_path` in your script for getting the instance path.
