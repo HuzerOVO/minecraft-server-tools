@@ -1,69 +1,64 @@
 # Mincraft Server Tools (MCST)
 
-[中文文档](README_zh-cn.md)
+[English version](README_en.md)
 
-## What is MCST
+## 什么是 MCST
 
-~~MCST are a series of scripts that are used to manage multiple local Minecraft
-server instance.~~ It contains a command line program (mcscli) and a 
-interactive program (mcsshell).
+~~MCST是一系列用于管理本地Minecraft服务实例的脚本。~~
+现在，MCST理论上能够用于管理任何能够从终端启动的游戏服务器，只需要一个启动脚本
+（start.sh）和一个终止脚本（stop.sh）。
+它包含了一个命令行程序（mcscli）和一个交互式程序（mcsshell）。
 
-Now, MCST is a series of scripts that are used formanage multiple local game
-server. You can manage any game that can start in the console by MCST with a 
-start script and a stop script theoretically.
+使用MCST，你可以：
+- 使用一句命令创建并初始化一个新的实例。
+- 管理多个本地服务实例。
+- 随时查看服务状态。
+- 从你的终端发送服务器指令并执行。
 
-With MCST, you can:
-- create and initialize a instance in one line command.
-- manage multiple local instances.
-- check servers status.
-- execute server command from your console.
+## 安装
 
-## Install
-
-1. First, install `screen` program. If you are using Ubuntu/Debian, you can
-   install it with command:
+1. 首先，安装`screen`。如果你正在使用Ubuntu或者Debain，你可以使用这个命令安装：
     ```bash
-    sudo apt-get update && sudo apt-get install screen -y
+    sudo apt install screen
     ```
-2. ~~Download MCST files to directory `$HOME/.local/bin/mcst`, `$HOME` is the home for user who runs MC servers.~~
-   This way still works, but I'm going to 
-   use `git clone` so that you can get updates.
+2. ~~下载MCST文件，并放到`$HOME/.local/bin/mcst`目录，`$HOME`是用于运行MC服务器的用户的主目录。~~
+   这个方法仍可以使用，但目前计划改用`git clone`方式，以方便更新。
+   由于该项目仍在开发中，可能会有破坏性更新，请自行决定安装方式。
 
-3. Make a soft link to `$HOME/.local/bin`.
+3. 创建软连接到`$HOME/.local/bin`目录。
    ```bash
    ln -sv $HOME/.local/bin/mcst/mcscli $HOME/.local/bin/mcscli
    ln -sv $HOME/.local/bin/mcst/mcsshell $HOME/.local/bin/mcsshell
    ```
 
-4. Make sure your `$PATH` contains `$HOME/.local/bin`, you can add it by
+4. 确保你的`$PATH`环境变量包含`$HOME/.local/bin`，你可以这样添加：
    ```bash
    export PATH="$PATH:$HOME/.local/bin"
    ```
-   Add the code to your `$HOME/.basrc`(for bash) or `$HOME/.zshrc`(for zsh)
-   file, so that it can be added automatically when you login.
+   把上述代码加入`$HOME/.basrc`或者`$HOME/.zshrc`文件，这样在你登录时就能自动
+   添加。
 
-## Configuration
+## 配置
 
-### For MCST
+### 配置MCST
 
-You can configurate MCST in `$HOME/.mcstrc`:
+你可以用`$HOME/.mcstrc`配置MCST：
 ```bash
-# who you will run MCST with.
+# 用于运行MCST的用户
 export CONF_USER="minecraft"
-# where your server instance will store in.
+# 服务实例存放的位置
 export CONF_SERVER_DIR="/home/$CONF_USER/game_servers"
-# you can specify which sessions is started by MCST
+# 标识screen会话，这样能够清楚地知道那些会话是MCST启动的
 export CONF_SESSION_PREFIX="mcst-"
 ```
 
-### For server instance
+### 配置实例
 
-After server instance initialized, you can find a directory named `.mcst`
-(it is ahidden directory) in your server instance, and you can use file 
-`{start|stop|update|reload}.sh.override` in the `.mcst` to custom your 
-server instance.
+在初始化服务实例后，你应该能够找到一个名为`.mcst`的文件夹（注意，这是一个隐藏
+文件夹），你可以在这个文件夹中使用`{start|stop|reload|update}.sh.override`
+这些文件来自定义你的服务管理脚本。
 
-The `*.sh.override` file should be write with bash syntax, if you want to 
-execute a server command, you can use `mcst_cmd "call a server command"`.
+所有`*.sh.override`文件都应该使用Bash语法，如果你想执行一个服务器指令，你可以
+使用这样的语句`mcst_cms "你想执行的指令"`。
 
-You can use `instance_path` in your script for getting the instance path.
+你可以在你的脚本中使用`instance_path`来获取服务实例的绝对路径。
