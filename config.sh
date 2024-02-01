@@ -21,8 +21,3 @@ export CONF_SESSION_PREFIX="${CONF_SESSION_PREFIX:-mcst-}"
 # This value can not be changed
 export CONF_SCRIPTS_DIR="scripts"
 export CONF_MCST_BASE=".mcst"
-export CONF_MCST_INSTANCE_STATUS=".mcst/status"
-export CONF_MCST_INSTANCE_GAME=".mcst/game"
-export CONF_MCST_START_SCRIPT=".mcst/start.sh"
-export CONF_MCST_STOP_SCRIPT=".mcst/stop.sh"
-export CONF_MCST_LOG_SCRIPT=".mcst/log.sh"

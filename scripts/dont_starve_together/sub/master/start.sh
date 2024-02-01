@@ -9,5 +9,4 @@ case "$(uname -m)" in
         ;;
 esac
 
-./dontstarve_dedicated_server_nullrenderer_x64 -shard Caves &
 ./dontstarve_dedicated_server_nullrenderer_x64 -shard Master
