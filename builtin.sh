@@ -408,7 +408,14 @@ function __deprecated() {
     return 1
 }
 
-# TAG: no_maintanence
+# desc: Run a script
+# param:
+#   1: instance name
+#   2: script
+#   3(opt): sub server name
+# return:
+#   0: no error
+#   1: error
 function script_run() {
     if [[ -z "$1"  ]]; then
         error_echo "builtin.run_script: Need a instance name."
@@ -419,14 +426,23 @@ function script_run() {
         error_echo "builtin.run_script: Need a script(operation) name."
     fi
 
-    if [[ ! -f "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.sh" ]]; then
-        error_echo "It seems that your instance doesn't support $2 operation."
-        return 1
+    local _common_tmp_dir="$PWD"
+    if [[ -z "$3" ]]; then
+        if [[ ! -f "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.sh" ]]; then
+            error_echo "It seems that your instance doesn't support $2 operation."
+            return 1
+        fi
+        cd "$CONF_SERVER_DIR/$1" || return 1
+        bash "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.sh" || error_echo "Script return failed."
+    else
+        if [[ ! -f "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.$3.sh" ]]; then
+            error_echo "Sub server $3 in instance $1 doesn't support $2 operation."
+            return 1
+        fi
+        cd "$CONF_SERVER_DIR/$1" || return 1
+        bash "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.$3.sh" || error_echo "Script return failed."
     fi
 
-    local _common_tmp_dir="$PWD"
-    cd "$CONF_SERVER_DIR/$1" || return 1
-    bash "$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/$2.sh" || error_echo "Script return failed."
     cd "$_common_tmp_dir" || return 1
     return 0
 }

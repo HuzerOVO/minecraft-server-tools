@@ -101,10 +101,6 @@ function stop() {
         return 1
     fi
 
-    if ! is_running "$1" "$2"; then
-        warn_echo "Instance $1 is not running, ignore."
-        return 1
-    fi
 
     # Get stop script
     local _common_stop_sh="$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/stop.sh"
@@ -116,6 +112,15 @@ function stop() {
         _common_session_name="$CONF_SESSION_PREFIX$1-$2-closer"
         _common_status="$CONF_SERVER_DIR/$1/$CONF_MCST_BASE/status.$2"
         _common_msg="Instance $1 sub server $2 is closing."
+        if ! is_running "$1" "$2"; then
+            warn_echo "Sub server $2 for instance $1 is not running, ignore."
+            return 1
+        fi
+    else
+        if ! is_running "$1"; then
+            warn_echo "Instance $1 is not running, ignore."
+            return 1
+        fi
     fi
 
     # Check file stop.sh
@@ -177,29 +182,50 @@ function status() {
     return 0
 }
 
+# desc: Update server
+# param:
+#   1: instance
+#   2(opt): sub server name
+# return:
+#   0: no error
+#   1: error
 function update() {
     if [[ -z "$1"  ]]; then
         error_echo "common.upgrade: Need a instance name."
         return 1
     fi
 
-    script_run "$1" "update"
+    script_run "$1" "update" "$2" || return 1
+
     return 0
 }
 
+# desc: Reload server
+# param:
+#   1: instance
+#   2(opt): sub server name
+# return:
+#   0: no error
+#   1: error
 function reload() {
     if [[ -z "$1"  ]]; then
         error_echo "common.reload: Need a instance name."
         return 1
     fi
 
-    if ! is_running "$1"; then
-        warn_echo "Try to reload a instance that is not running."
-    fi
-    script_run "$1" "reload"
+    script_run "$1" "reload" "$2" || return 1
+
     return 0
 }
 
+# desc: Run custom script in a server
+# param:
+#   1: instance
+#   2: script (operation)
+#   3(opt): sub server name
+# return:
+#   0: no error
+#   1: error
 function custom_script() {
     if [[ -z "$1" ]]; then 
         error_echo "common.script: Need a instance name."
@@ -210,9 +236,11 @@ function custom_script() {
         error_echo "common.script: Need a script(operation) name."
     fi
 
-    script_run "$1" "$2"
+    script_run "$1" "$2" "$3" || return 1
+
     return 0
 }
+
 # desc: Execute Server command in a instace(session).
 # param:
 #   1: session name

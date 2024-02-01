@@ -20,9 +20,9 @@ Command:
     stop <instance> [sub]       Stop the specified server or all sub servers for <instance>.
     status [instance]           Show a server status, or all instances.
 
-    update <instance>           Update server to new version.
-    reload <instance>           Reload a running server.
-    script <instance> <script>  Run a custom script.
+    update <instance> [sub]             Update server to new version.
+    reload <instance> [sub]             Reload a running server.
+    script <instance> [sub] <script>    Run a custom script.
 
     list-instances              List all available server instances.
     list-sub <instance>         List all sub server for a instance.
@@ -121,29 +121,28 @@ case $1 in
             exit 2
         fi
 
-        if has_instance "$1"; then
-            # start a specified sub server
-            if [[ -n "$2" ]]; then
-                if ! has_sub_server "$1" "$2";then
-                    error_echo "No sub server $2 in instance $1."
-                    exit 1
-                fi
-                start "$1" "$2" || exit 1
-                exit 0
-            fi
-
-            # no sub server gived, try to start a single server,
-            # or start all sub server for instance
-            if ! is_sub_server_instance "$1"; then
-                start "$1" || exit 1
-            else
-                for sub in $(list_sub_server "$1"); do
-                    start "$1" "$2" || warn_echo "Failed to start sub server $sub for instance $1."
-                done
-            fi
-        else
+        if ! has_instance "$1"; then
             error_echo "No this instance: $1."
             exit 1
+        fi
+        # start a specified sub server
+        if [[ -n "$2" ]]; then
+            if ! has_sub_server "$1" "$2";then
+                error_echo "No sub server $2 in instance $1."
+                exit 1
+            fi
+            start "$1" "$2" || exit 1
+            exit 0
+        fi
+
+        # no sub server gived, try to start a single server,
+        # or start all sub server for instance
+        if ! is_sub_server_instance "$1"; then
+            start "$1" || exit 1
+        else
+            for _cli_sub in $(list_sub_server "$1"); do
+                start "$1" "$_cli_sub" || warn_echo "Failed to start sub server $_cli_sub for instance $1."
+            done
         fi
         ;;
     stop)
@@ -153,48 +152,28 @@ case $1 in
             exit 2
         fi
 
-        _cli_session="$1"
+        if ! has_instance "$1"; then
+            error_echo "No this instance: $1."
+            exit 1
+        fi
 
         if [[ -n "$2" ]]; then
             if ! has_sub_server "$1" "$2";then
                 error_echo "No sub server $2 in instance $1."
                 exit 1
             fi
-            _cli_session="$1-$2"
-        fi
-
-        if has_session "$_cli_session"; then
             stop "$1" "$2" || exit 1
-        else
-            error_echo "No this session: $_cli_session."
-            exit 1
-        fi
-        ;;
-    update)
-        shift
-        if [[ -z "$1" ]]; then
-            error_echo "Need a instance name."
-            exit 2
-        fi
-        if ! has_instance "$1"; then
-            error_echo "No this instance: $1."
-            exit 1 
         fi
 
-        update "$1"
-        ;;
-    reload)
-        shift
-        if [[ -z "$1" ]]; then
-            error_echo "Need a instance name."
-            exit 2
-        fi
-        if ! has_instance "$1"; then
-            error_echo "No this instance: $1."
-            exit 1 
+        # try to stop all sub server if it is a sub server instance
+        if is_sub_server_instance "$1"; then
+            for _cli_sub in $(list_sub_server "$1"); do
+                stop "$1" "$_cli_sub" || warn_echo "Failed to stop sub server $_cli_sub for instance $1"
+            done
+            exit 0
         fi
 
-        reload "$1"
+        stop "$1" || exit 1
         ;;
     status)
         shift
@@ -233,6 +212,46 @@ case $1 in
             fi
         fi
         ;;
+    update)
+        shift
+        if [[ -z "$1" ]]; then
+            error_echo "Need a instance name."
+            exit 2
+        fi
+        if ! has_instance "$1"; then
+            error_echo "No this instance: $1."
+            exit 1 
+        fi
+
+        if [[ -n "$2" ]]; then
+            if ! has_sub_server "$1" "$2"; then
+                error_echo "Instance $1 doesn't have sub server $2."
+                exit 1
+            fi
+        fi
+
+        update "$1" "$2"
+        ;;
+    reload)
+        shift
+        if [[ -z "$1" ]]; then
+            error_echo "Need a instance name."
+            exit 2
+        fi
+        if ! has_instance "$1"; then
+            error_echo "No this instance: $1."
+            exit 1 
+        fi
+
+        if [[ -n "$2" ]]; then
+            if ! has_sub_server "$1" "$2"; then
+                error_echo "Instance $1 doesn't have sub server $2."
+                exit 1
+            fi
+        fi
+
+        reload "$1" "$2"
+        ;;
     script)
         shift
         if [[ -z "$1" ]]; then
@@ -248,8 +267,18 @@ case $1 in
             error_echo "Need a script(operation) name."
             exit 2 
         fi
+        _cli_script="$2"
 
-        custom_script "$1" "$2"
+        if [[ -n "$3" ]]; then
+            if ! has_sub_server "$1" "$2"; then
+                error_echo "Instance $1 doesn't have sub server $2."
+                exit 1
+            fi
+            _cli_script="$3"
+            _cli_sub="$2"
+        fi
+
+        custom_script "$1" "$_cli_script" "$_cli_sub" || warn_echo "Script $_cli_script return failed"
         ;;
     list-instances)
         instances=$(list_instances)
